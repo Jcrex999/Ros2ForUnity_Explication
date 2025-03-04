@@ -104,91 +104,99 @@ publisher.Publish(cameraInfo);
 Esta clase actúa como puente entre aplicaciones Unity y el ecosistema de mensajes de sensores de cámara ROS2, permitiendo que tu aplicación interactúe con otros nodos ROS2 que trabajan con datos de cámara.
 
 ---
-# Explicación de Funciones en Image.cs
+# Explicación de Funciones en CameraInfo.cs
 
-El archivo `Image.cs` es parte de la biblioteca de mensajes de ROS2 para Unity, específicamente en el namespace `sensor_msgs.msg`. Este archivo contiene una clase que representa mensajes de imagen utilizados en sistemas robóticos.
+La clase `CameraInfo` en ROS2 para Unity proporciona varias funciones que te permiten trabajar con datos de calibración de cámaras. Estas funciones tienen propósitos específicos que te ayudarán a integrar información de cámaras en tus proyectos robóticos.
 
-## Funciones Principales y su Propósito
+## Funciones Principales y sus Usos
 
 ### Funciones de Creación y Gestión Básica
 
 ```csharp
-// Constructor - Crea una nueva instancia del mensaje Image
-var image = new Image();
+// Constructor - Crea una nueva instancia de CameraInfo
+var cameraInfo = new CameraInfo();
 ```
+**Propósito**: Inicializa un objeto vacío de información de cámara que luego puedes configurar con los parámetros específicos de tu cámara.
 
-**Propósito**: Inicializar un nuevo mensaje de imagen vacío para posterior configuración.
-
-### Funciones de Gestión de Datos
+### Funciones de Gestión del Header (Cabecera)
 
 ```csharp
-// Asignar datos de imagen desde un array de bytes
-image.SetData(byteArray);
-
-// Obtener los datos de imagen como array de bytes
-byte[] imageData = image.GetData();
-```
-
-**Propósito**: Estas funciones te permiten manipular los datos de píxeles de la imagen. Útiles cuando necesitas transferir imágenes entre Unity y ROS2.
-
-### Funciones de Header (Cabecera)
-
-```csharp
-// Establecer el marco de coordenadas de la imagen
-image.SetHeaderFrame("camera_frame");
+// Establecer el marco de coordenadas
+cameraInfo.SetHeaderFrame("camera_optical_frame");
 
 // Obtener el marco de coordenadas actual
-string frame = image.GetHeaderFrame();
+string frame = cameraInfo.GetHeaderFrame();
 
-// Actualizar el timestamp de la imagen
-image.UpdateHeaderTime(segundosDesdeEpoch, nanosegundos);
+// Actualizar el timestamp
+cameraInfo.UpdateHeaderTime(segundosDesdeEpoch, nanosegundos);
 ```
-
-**Propósito**: Estas funciones gestionan los metadatos temporales y espaciales de la imagen. Son cruciales para la sincronización de datos en sistemas robóticos.
+**Propósito**: Estas funciones te permiten gestionar metadatos espacio-temporales. Son cruciales para sincronizar datos de diferentes sensores y establecer relaciones espaciales entre ellos.
 
 ### Funciones de Serialización ROS2
 
 ```csharp
 // Leer datos desde un mensaje nativo ROS2
-image.ReadNativeMessage();
+cameraInfo.ReadNativeMessage();
 
 // Escribir datos a un mensaje nativo ROS2
-image.WriteNativeMessage();
+cameraInfo.WriteNativeMessage();
 ```
-
-**Propósito**: Permiten la interoperabilidad con el sistema de mensajería de ROS2, facilitando la comunicación entre nodos.
+**Propósito**: Facilitan la interoperabilidad con el sistema de mensajería de ROS2, permitiendo comunicación entre tu aplicación Unity y otros nodos ROS2.
 
 ### Funciones de Gestión de Memoria
 
 ```csharp
 // Liberar recursos nativos
-image.Dispose();
+cameraInfo.Dispose();
 ```
+**Propósito**: Permite liberar recursos no gestionados para evitar fugas de memoria. Especialmente importante ya que `CameraInfo` hace uso de punteros nativos para comunicarse con ROS2.
 
-**Propósito**: Garantiza la limpieza adecuada de recursos no gestionados, evitando fugas de memoria.
+## Propiedades Configurables y su Uso
 
-## Cuándo Usar Estas Funciones
+La clase también te proporciona propiedades que puedes configurar:
 
-- **Publicación de imágenes**: Usa las funciones de configuración para preparar datos de imagen antes de publicarlos en un tema (topic) ROS2.
-```csharp
-image.Height = 480;
-image.Width = 640;
-image.Encoding = "rgb8";
-image.SetData(misDatosDeCamara);
-publisher.Publish(image);
-```
+- **Height y Width**: Dimensiones de la imagen en píxeles
+- **Distortion_model**: Modelo matemático usado para representar la distorsión de la lente
+- **D**: Array de coeficientes de distorsión para corregir distorsión de lente
+- **K**: Matriz de cámara 3x3 con parámetros intrínsecos (distancia focal, centro óptico)
+- **R**: Matriz de rectificación para alinear imágenes (importante en visión estéreo)
+- **P**: Matriz de proyección que combina información de K y R
+- **Binning_x y Binning_y**: Factores de agrupación de píxeles, útiles para resoluciones reducidas
+- **Roi**: Región de interés dentro de la imagen completa
 
-- **Procesamiento de imágenes recibidas**: Usa las funciones de obtención de datos cuando recibas imágenes en un suscriptor.
-```csharp
-void MessageCallback(Image msg)
-{
-    byte[] datos = msg.GetData();
-    // Procesar la imagen recibida
-}
-```
+## Casos de Uso Prácticos
 
-- **Integración con visión por computadora**: Cuando necesites transferir imágenes entre Unity y algoritmos de visión por computadora.
+1. **Calibración de Cámara**:
+   ```csharp
+   // Al recibir datos de calibración
+   cameraInfo.K[0] = fx; // Distancia focal X
+   cameraInfo.K[4] = fy; // Distancia focal Y
+   cameraInfo.K[2] = cx; // Centro óptico X
+   cameraInfo.K[5] = cy; // Centro óptico Y
+   ```
 
-- **Sincronización de datos**: Usa las funciones de timestamp cuando necesites correlacionar datos de imagen con otros sensores.
+2. **Publicación de Datos de Calibración**:
+   ```csharp
+   // Preparar mensaje y publicar
+   cameraInfo.UpdateHeaderTime(timestamp_seconds, timestamp_nanoseconds);
+   cameraInfo.SetHeaderFrame("camera_link");
+   cameraInfoPublisher.Publish(cameraInfo);
+   ```
 
-Estas funciones son esenciales para cualquier aplicación en Unity que requiera procesamiento de imágenes en un entorno ROS2, como robots móviles, drones, o aplicaciones de realidad aumentada basadas en visión por computadora.
+3. **Transformación de Coordenadas**:
+   ```csharp
+   // Uso de parámetros para deshacer distorsión
+   // O proyectar puntos 3D en la imagen
+   // (Implementación depende de tu algoritmo específico)
+   ```
+
+4. **Integración con Computer Vision**:
+   ```csharp
+   // Extraer parámetros para bibliotecas de visión como OpenCV
+   double[] cameraMatrix = new double[9];
+   for (int i = 0; i < 9; i++) {
+       cameraMatrix[i] = cameraInfo.K[i];
+   }
+   ```
+
+Estas funciones son fundamentales cuando trabajas con visión por computadora en robótica, realidad aumentada o cualquier aplicación que requiera información precisa sobre la forma en que una cámara captura el mundo 3D en imágenes 2D.
