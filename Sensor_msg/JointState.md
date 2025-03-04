@@ -93,3 +93,119 @@ private void HandleJointState(sensor_msgs.msg.JointState msg)
 5. **Cinemática inversa**: Como se ve en tu clase `Cinematica_inversa.cs`, para cálculos de cinemática.
 
 Los arreglos Name, Position, Velocity y Effort deben tener longitudes correspondientes, pero es buena práctica verificar sus tamaños al procesar mensajes JointState, ya que algunos campos podrían estar vacíos según la aplicación.
+
+# Uso de JointState.cs y sus funciones
+
+El archivo `JointState.cs` proporciona una interfaz para manipular mensajes `sensor_msgs/JointState` en ROS2 desde C#. Aquí te explico cómo usar sus principales funciones:
+
+## Propiedades principales
+
+Las propiedades principales que puedes utilizar son:
+
+```csharp
+public Header Header { get; set; }             // Encabezado del mensaje
+public string[] Name { get; set; }             // Nombres de articulaciones
+public double[] Position { get; set; }         // Posiciones en radianes o metros
+public double[] Velocity { get; set; }         // Velocidades
+public double[] Effort { get; set; }           // Esfuerzos (torques/fuerzas)
+```
+
+## Funciones para manipular el encabezado
+
+```csharp
+// Establecer el frame ID en el encabezado
+void SetHeaderFrame(string frameID)
+
+// Obtener el frame ID del encabezado
+string GetHeaderFrame()
+
+// Actualizar el timestamp del encabezado
+void UpdateHeaderTime(int sec, uint nanosec)
+```
+
+## Funciones para interactuar con ROS2
+
+```csharp
+// Leer datos desde un mensaje nativo de ROS2 a este objeto
+void ReadNativeMessage()
+
+// Escribir datos de este objeto a un mensaje nativo de ROS2
+void WriteNativeMessage()
+```
+
+## Ejemplo práctico de uso
+
+### 1. Publicar posiciones de articulaciones
+
+```csharp
+// Crear el objeto JointState
+sensor_msgs.msg.JointState jointMsg = new sensor_msgs.msg.JointState();
+
+// Configurar el encabezado
+jointMsg.UpdateHeaderTime((int)DateTimeOffset.Now.ToUnixTimeSeconds(), 0);
+jointMsg.SetHeaderFrame("base_link");
+
+// Establecer datos de articulaciones
+jointMsg.Name = new string[] { "joint1", "joint2", "joint3" };
+jointMsg.Position = new double[] { 0.5, 1.2, 0.8 };
+jointMsg.Velocity = new double[] { 0.1, 0.0, 0.2 };
+jointMsg.Effort = new double[] { 0.0, 0.0, 0.0 };
+
+// Publicar el mensaje
+jointStatePublisher.Publish(jointMsg);
+```
+
+### 2. Recibir y procesar posiciones de articulaciones
+
+```csharp
+private void JointStateCallback(sensor_msgs.msg.JointState msg)
+{
+    // Acceder a las posiciones y procesarlas
+    for (int i = 0; i < msg.Name.Length; i++)
+    {
+        if (i < msg.Position.Length)
+        {
+            string jointName = msg.Name[i];
+            double position = msg.Position[i];
+            
+            // Hacer algo con estos datos
+            Debug.Log($"Articulación {jointName}: posición = {position}");
+            
+            // Ejemplo: Actualizar la posición de un GameObject
+            GameObject joint = GameObject.Find(jointName);
+            if (joint != null)
+            {
+                // Convertir la posición de radianes a grados si es necesario
+                float angleDegrees = (float)(position * Mathf.Rad2Deg);
+                joint.transform.localRotation = Quaternion.Euler(0, 0, angleDegrees);
+            }
+        }
+    }
+}
+```
+
+### 3. Implementación de cinemática inversa
+
+```csharp
+public void EnviarPosicionEfector(Vector3 posicion, Quaternion orientacion)
+{
+    // Calcular ángulos de articulaciones mediante cinemática inversa
+    double[] articulaciones = CalcularCinematicaInversa(posicion, orientacion);
+    
+    // Crear mensaje JointState con los resultados
+    sensor_msgs.msg.JointState jointMsg = new sensor_msgs.msg.JointState();
+    
+    // Configurar encabezado
+    jointMsg.UpdateHeaderTime((int)DateTimeOffset.Now.ToUnixTimeSeconds(), 0);
+    jointMsg.SetHeaderFrame("robot_base");
+    
+    // Establecer nombres y posiciones calculadas
+    jointMsg.Name = new string[] { "joint1", "joint2", "joint3", "joint4", "joint5", "joint6" };
+    jointMsg.Position = articulaciones;
+    
+    // Publicar posiciones calculadas
+    jointStatePublisher.Publish(jointMsg);
+}
+```
+
+Estas funciones te permiten crear sistemas de control de robots, visualización de estados, simulaciones y algoritmos de planificación de movimiento usando ROS2 y Unity.
